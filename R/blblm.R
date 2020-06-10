@@ -1,6 +1,8 @@
 #' @import purrr
 #' @import stats
 #' @import parallel
+#' @importFrom readr cols
+#' @importFrom readr read_csv
 #' @importFrom magrittr %>%
 #' @aliases NULL
 #' @details
@@ -18,9 +20,12 @@ utils::globalVariables(c("."))
 #' and do little bag of bootsrap.
 #'
 #' @param formula formula for linear regression
+#' @param files allow user to inpute the path of files to do distribution, only support csv file
+#' @param n if users input files, they should also input the size of whole data
 #' @param data data for linear regression
 #' @param m the number of subsamples divided by the whole data
 #' @param B the time of little bag of bootstrap
+#' @param method the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"
 #' @param cluster a set of copies of R running in parallel, default as NULL only one core
 #' @param seed set.seed to make the result reproducible, default as 141
 #'
@@ -30,22 +35,22 @@ utils::globalVariables(c("."))
 #' @export
 #' @examples
 #' blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100)
-blblm <- function(formula, file_names = NULL, n = NULL, data = NULL, m = 10, B = 5000, cluster = NULL, seed = 141) {
+blblm <- function(formula, files = NULL, n = NULL, data = NULL, m = 10, B = 5000, method = "lm", cluster = NULL, seed = 141) {
   set.seed(seed)
-  if(is.null(file_names)){
+  if(is.null(files)){
     data_list <- split_data(data, m)
 
     if(is.null(cluster)) {
       estimates <- map(
         data_list,
-        ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B))
+        ~ lm_each_subsample(formula = formula, data = ., n = nrow(data), B = B, method = method))
     }
 
     else {
       # cl <- makeCluster(n_cores)
       clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma"))
       estimates <- parLapply(cluster, data_list,
-            function(x) lm_each_subsample(formula = formula, data = x, n = nrow(data), B = B))
+            function(x) lm_each_subsample(formula = formula, data = x, n = nrow(data), B = B, method = method))
       # stopCluster(cl)
     }
   }
@@ -54,9 +59,9 @@ blblm <- function(formula, file_names = NULL, n = NULL, data = NULL, m = 10, B =
       stop("ERROR: you need to input the size of the whole data!")
     }
     else if(is.null(cluster)){
-      estimates <- lapply(file_names, function(fname) {
+      estimates <- lapply(files, function(fname) {
         df <- read_csv(fname, col_types = cols())
-        lm_each_subsample(formula = formula, data = df, n = n, B = B)
+        lm_each_subsample(formula = formula, data = df, n = n, B = B, method = method)
       })
     }
     else{
@@ -67,9 +72,9 @@ blblm <- function(formula, file_names = NULL, n = NULL, data = NULL, m = 10, B =
       }))
       clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma"))
 
-      estimates <- parLapply(cluster, file_names, function(fname) {
+      estimates <- parLapply(cluster, files, function(fname) {
         df <- read_csv(fname, col_types = cols())
-        lm_each_subsample(formula = formula, data = df, n = n, B = B)
+        lm_each_subsample(formula = formula, data = df, n = n, B = B, method = method)
       })
     }
 
@@ -99,11 +104,12 @@ split_data <- function(data, m) {
 #' @param data the subsample data
 #' @param n the row number of the original data
 #' @param B the times of little bag of bootstrap
+#' @param method the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"
 #'
 #' @return the estimate coefficients and sigma
 #' in B little bag of bootstraps for one subsample
-lm_each_subsample <- function(formula, data, n, B) {
-  replicate(B, lm_each_boot(formula, data, n), simplify = FALSE)
+lm_each_subsample <- function(formula, data, n, B, method) {
+  replicate(B, lm_each_boot(formula, data, n, method), simplify = FALSE)
 }
 
 
@@ -112,11 +118,12 @@ lm_each_subsample <- function(formula, data, n, B) {
 #' @param formula the formula for linear regression
 #' @param data the subsample data
 #' @param n the row number of original data
+#' @param method the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"
 #'
 #' @return the estimate of coefficients and sigma in one weighted linear regression
-lm_each_boot <- function(formula, data, n) {
+lm_each_boot <- function(formula, data, n, method) {
   freqs <- rmultinom(1, n, rep(1, nrow(data)))
-  lm1(formula, data, freqs)
+  lm1(formula, data, freqs, method)
 }
 
 
@@ -124,14 +131,38 @@ lm_each_boot <- function(formula, data, n) {
 #' @param formula the formula for linear regression
 #' @param data the subsample data
 #' @param freqs the weights for each case in subsample data
+#' @param method the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"
 #'
 #' @return the estimate of coefficients and sigma in one weighted linear regression
-lm1 <- function(formula, data, freqs) {
+lm1 <- function(formula, data, freqs, method) {
   # drop the original closure of formula,
   # otherwise the formula will pick a wront variable from the global scope.
   environment(formula) <- environment()
-  fit <- lm(formula, data, weights = freqs)
-  list(coef = blbcoef(fit), sigma = blbsigma(fit))
+  if(method == "lm"){
+    fit <- lm(formula, data, weights = freqs)
+    list(coef = blbcoef(fit), sigma = blbsigma(fit))
+  }
+  else{
+    X <- model.matrix(formula, data)
+    p <- dim(X)[2]
+    y <- model.response(model.frame(formula, data))
+    W <- diag(as.vector(freqs))
+    n <- sum(freqs)
+    if(method == "lmR"){
+      coef_lmR <- solve(t(X)%*%W%*%X, t(X)%*%W%*%y)
+      name <- rownames(coef_lmR)
+      coef_lmR <- as.numeric(coef_lmR)
+      names(coef_lmR) <- name
+
+      sigma_lmR <- sqrt(sum(freqs*(y-X %*% coef_lmR)^2)/(n-p))
+
+      list(coef = coef_lmR, sigma = sigma_lmR)
+    }
+    else{
+
+    }
+  }
+
 }
 
 
@@ -156,7 +187,7 @@ blbsigma <- function(fit) {
   sqrt(sum(w * (e^2)) / (sum(w) - p))
 }
 
-
+#' @importFrom utils capture.output
 #' @export
 #' @method print blblm
 print.blblm <- function(x, ...) {
@@ -217,12 +248,11 @@ coef.blblm <- function(object, cluster = NULL,...) {
   }
 }
 
-
 #' @export
 #' @method confint blblm
 confint.blblm <- function(object, parm = NULL, level = 0.95, cluster = NULL,...) {
   if (is.null(parm)) {
-    parm <- attr(terms(fit$formula), "term.labels")
+    parm <- attr(terms(object$formula), "term.labels")
   }
   alpha <- 1 - level
   est <- object$estimates

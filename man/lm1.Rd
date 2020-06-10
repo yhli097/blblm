@@ -4,7 +4,7 @@
 \alias{lm1}
 \title{estimate the regression estimates based on given the number of repetitions}
 \usage{
-lm1(formula, data, freqs)
+lm1(formula, data, freqs, method)
 }
 \arguments{
 \item{formula}{the formula for linear regression}
@@ -12,6 +12,8 @@ lm1(formula, data, freqs)
 \item{data}{the subsample data}
 
 \item{freqs}{the weights for each case in subsample data}
+
+\item{method}{the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"}
 }
 \value{
 the estimate of coefficients and sigma in one weighted linear regression

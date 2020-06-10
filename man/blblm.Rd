@@ -6,11 +6,12 @@
 \usage{
 blblm(
   formula,
-  file_names = NULL,
+  files = NULL,
   n = NULL,
   data = NULL,
   m = 10,
   B = 5000,
+  method = "lm",
   cluster = NULL,
   seed = 141
 )
@@ -18,11 +19,17 @@ blblm(
 \arguments{
 \item{formula}{formula for linear regression}
 
+\item{files}{allow user to inpute the path of files to do distribution, only support csv file}
+
+\item{n}{if users input files, they should also input the size of whole data}
+
 \item{data}{data for linear regression}
 
 \item{m}{the number of subsamples divided by the whole data}
 
 \item{B}{the time of little bag of bootstrap}
+
+\item{method}{the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"}
 
 \item{cluster}{a set of copies of R running in parallel, default as NULL only one core}
 

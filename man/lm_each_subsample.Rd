@@ -4,7 +4,7 @@
 \alias{lm_each_subsample}
 \title{compute the estimates for each little bag of bootstrap}
 \usage{
-lm_each_subsample(formula, data, n, B)
+lm_each_subsample(formula, data, n, B, method)
 }
 \arguments{
 \item{formula}{the formula for linear regression}
@@ -14,6 +14,8 @@ lm_each_subsample(formula, data, n, B)
 \item{n}{the row number of the original data}
 
 \item{B}{the times of little bag of bootstrap}
+
+\item{method}{the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"}
 }
 \value{
 the estimate coefficients and sigma

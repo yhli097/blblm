@@ -4,7 +4,7 @@
 \alias{lm_each_boot}
 \title{compute the regression estimates for a blb dataset given a generated weight}
 \usage{
-lm_each_boot(formula, data, n)
+lm_each_boot(formula, data, n, method)
 }
 \arguments{
 \item{formula}{the formula for linear regression}
@@ -12,6 +12,8 @@ lm_each_boot(formula, data, n)
 \item{data}{the subsample data}
 
 \item{n}{the row number of original data}
+
+\item{method}{the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"}
 }
 \value{
 the estimate of coefficients and sigma in one weighted linear regression
