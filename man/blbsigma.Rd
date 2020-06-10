@@ -6,6 +6,12 @@
 \usage{
 blbsigma(fit)
 }
+\arguments{
+\item{fit}{the result of lm()}
+}
+\value{
+sigma from fit
+}
 \description{
 compute sigma from fit
 }

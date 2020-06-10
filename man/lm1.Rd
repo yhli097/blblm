@@ -6,6 +6,16 @@
 \usage{
 lm1(formula, data, freqs)
 }
+\arguments{
+\item{formula}{the formula for linear regression}
+
+\item{data}{the subsample data}
+
+\item{freqs}{the weights for each case in subsample data}
+}
+\value{
+the estimate of coefficients and sigma in one weighted linear regression
+}
 \description{
 estimate the regression estimates based on given the number of repetitions
 }

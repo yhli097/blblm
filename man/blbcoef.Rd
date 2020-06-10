@@ -6,6 +6,12 @@
 \usage{
 blbcoef(fit)
 }
+\arguments{
+\item{fit}{the result of lm()}
+}
+\value{
+the coef of fit
+}
 \description{
 compute the coefficients from fit
 }

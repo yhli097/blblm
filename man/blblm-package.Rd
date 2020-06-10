@@ -2,8 +2,6 @@
 % Please edit documentation in R/blblm.R
 \docType{package}
 \name{blblm-package}
-\alias{blblm}
-\alias{blblm-package}
 \title{blblm: What the Package Does (Title Case)}
 \description{
 More about what it does (maybe more than one line)

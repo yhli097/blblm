@@ -2,10 +2,23 @@
 % Please edit documentation in R/blblm.R
 \name{lm_each_subsample}
 \alias{lm_each_subsample}
-\title{compute the estimates}
+\title{compute the estimates for each little bag of bootstrap}
 \usage{
 lm_each_subsample(formula, data, n, B)
 }
+\arguments{
+\item{formula}{the formula for linear regression}
+
+\item{data}{the subsample data}
+
+\item{n}{the row number of the original data}
+
+\item{B}{the times of little bag of bootstrap}
+}
+\value{
+the estimate coefficients and sigma
+in B little bag of bootstraps for one subsample
+}
 \description{
-compute the estimates
+compute the estimates for each little bag of bootstrap
 }
