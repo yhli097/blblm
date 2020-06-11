@@ -3,6 +3,8 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
+This is the final project of STA 141C 2020 Spring. The goal is to implement little bag of bootstrap in linear regression, to get the estimation as well as confidence interval of coefficients, sigma and prediction. In order to speed up, I use the parallel package to make parallel computation. Users can set up clusters and apply it in this process. Also, I provide method to help users distribute files into clusters to reduce the physical memory. What is more, users can choose method in linear regression like lm, lmR and lmC. The last one is a C++ function which allows a faster computation.
+    
 ## Examples
 
 ``` r
@@ -32,30 +34,12 @@ predict(fit, data.frame(wt = c(2.5, 3), hp = c(150, 170)), confidence = TRUE)
 #> 2 18.80785 17.50654 19.71772
 
 
-file_names <- file.path("vignettes/flights", list.files("vignettes/flights"))
-m <- length(file_names)
-n <- nrow(nycflights13::flights)
-fit <- blblm(arr_delay ~ dep_delay + flight + distance, files = file_names, B = 100, cluster = cl)
-sigma(fit, confidence = TRUE)
-#>   sigma      lwr      upr 
-#> 17.92746 17.84843 18.00715 
-confint(fit, cluster = cl)
-#>                    2.5%         97.5%
-#> dep_delay  1.015971e+00  1.0199569652
-#> flight     7.723085e-05  0.0001578702
-#> distance  -2.529749e-03 -0.0023211470
-predict(fit, data.frame(dep_delay = c(-10,-30), flight = c(1000, 500), distance = c(1500,3000) ), confidence = TRUE, cluster = cl)
-#>       fit       lwr       upr
-#> 1 -17.2709 -17.35900 -17.18289
-#> 2 -41.3272 -41.54626 -41.11114
-
-
 file_names <- file.path("vignettes/files", list.files("vignettes/files"))
 fit <- blblm(y~x, files = file_names, B = 50, cluster = cl)
 coef(fit)
 #> (Intercept)           x 
 #> -0.01803419  0.02715120 
 
-
 stopCluster(cl)
 ```
+For more detail and analysis, you may refer to the vignettes.
