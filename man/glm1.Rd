@@ -13,7 +13,7 @@ glm1(formula, data, freqs, family)
 
 \item{freqs}{the weights for each case in subsample data}
 
-\item{method}{the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"}
+\item{family}{a description of the error distribution and link function to be used in the model}
 }
 \value{
 the estimate of coefficients and sigma in one weighted linear regression

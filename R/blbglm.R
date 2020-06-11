@@ -131,7 +131,7 @@ glm_each_boot <- function(formula, data, n, family) {
 #' @param formula the formula for linear regression
 #' @param data the subsample data
 #' @param freqs the weights for each case in subsample data
-#' @param method the method to compute coef and sigma, choice: "lm","lmR","lmC", default as "lm"
+#' @param family a description of the error distribution and link function to be used in the model
 #'
 #' @return the estimate of coefficients and sigma in one weighted linear regression
 glm1 <- function(formula, data, freqs, family) {

@@ -5,20 +5,20 @@
 \title{blblm: Linear Regression with Little Bag of Bootstraps by Parallel and Rcpp}
 \description{
 This is the final project of STA 141C 2020 Spring. The goal is to implement 
-    little bag of bootstrap in linear regression, to get the estimation as well as 
-    confidence interval of coefficients, sigma and prediction. In order to speed up,
-    I use the parallel package to make parallel computation. Users can set up clusters 
-    and apply it in this process. Also, I provide method to help users distribute files 
-    into clusters to reduce the physical memory. What is more, users can choose method 
+    little bag of bootstrap in linear regression and generalized linear regression, 
+    to get the estimation as well as confidence interval of coefficients, sigma and prediction. 
+    In order to speed up, I use the parallel package to make parallel computation. 
+    Users can set up clusters and apply it in this process. Also, I provide method to help users 
+    distribute files into clusters to reduce the physical memory. What is more, users can choose method 
     in linear regression like lm, lmR and lmC. The last one is a C++ function which allows
     a faster computation.
 
 This is the final project of STA 141C 2020 Spring. The goal is to implement 
-    little bag of bootstrap in linear regression, to get the estimation as well as 
-    confidence interval of coefficients, sigma and prediction. In order to speed up,
-    I use the parallel package to make parallel computation. Users can set up clusters 
-    and apply it in this process. Also, I provide method to help users distribute files 
-    into clusters to reduce the physical memory. What is more, users can choose method 
+    little bag of bootstrap in linear regression and generalized linear regression, 
+    to get the estimation as well as confidence interval of coefficients, sigma and prediction. 
+    In order to speed up, I use the parallel package to make parallel computation. 
+    Users can set up clusters and apply it in this process. Also, I provide method to help users 
+    distribute files into clusters to reduce the physical memory. What is more, users can choose method 
     in linear regression like lm, lmR and lmC. The last one is a C++ function which allows
     a faster computation.
 }
