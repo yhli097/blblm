@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Yahui Li" />
+
+<meta name="date" content="2020-06-10" />
+
+<title>Final Project: Linear Regression with Little Bag of Bootstraps by Parallel and Rcpp</title>
+
+
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css" data-origin="pandoc">
+a.sourceLine { display: inline-block; line-height: 1.25; }
+a.sourceLine { pointer-events: none; color: inherit; text-decoration: inherit; }
+a.sourceLine:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode { white-space: pre; position: relative; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+code.sourceCode { white-space: pre-wrap; }
+a.sourceLine { text-indent: -1em; padding-left: 1em; }
+}
+pre.numberSource a.sourceLine
+  { position: relative; left: -4em; }
+pre.numberSource a.sourceLine::before
+  { content: attr(title);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; pointer-events: all; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+    color: #aaaaaa;
+  }
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+div.sourceCode
+  {  }
+@media screen {
+a.sourceLine::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+code span.at { color: #7d9029; } /* Attribute */
+code span.bn { color: #40a070; } /* BaseN */
+code span.bu { } /* BuiltIn */
+code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+code span.ch { color: #4070a0; } /* Char */
+code span.cn { color: #880000; } /* Constant */
+code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+code span.dt { color: #902000; } /* DataType */
+code span.dv { color: #40a070; } /* DecVal */
+code span.er { color: #ff0000; font-weight: bold; } /* Error */
+code span.ex { } /* Extension */
+code span.fl { color: #40a070; } /* Float */
+code span.fu { color: #06287e; } /* Function */
+code span.im { } /* Import */
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+code span.op { color: #666666; } /* Operator */
+code span.ot { color: #007020; } /* Other */
+code span.pp { color: #bc7a00; } /* Preprocessor */
+code span.sc { color: #4070a0; } /* SpecialChar */
+code span.ss { color: #bb6688; } /* SpecialString */
+code span.st { color: #4070a0; } /* String */
+code span.va { color: #19177c; } /* Variable */
+code span.vs { color: #4070a0; } /* VerbatimString */
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    for (var j = 0; j < rules.length; j++) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") continue;
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') continue;
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Final Project: Linear Regression with Little Bag of Bootstraps by Parallel and Rcpp</h1>
+<h4 class="author">Yahui Li</h4>
+<h4 class="date">June 10, 2020</h4>
+
+
+
+<p>This vignette is a report of final project in STA141C, 2020 Spring. Our goal is to implement the little bag of bootstrap in linear regression to get the estimation and confidence interval of coefficients, sigma and prediction. At the same time, make use of multiple ways for high performance statistical computing, such as parallel computing, distribution and Rcpp.</p>
+<div id="overview" class="section level3">
+<h3>Overview</h3>
+<p>The main function to make the little bag of bootstrap of linear regression on the data set is <code>blblm()</code>. The input has formula, data, files, number of subsamples <span class="math inline">\(m\)</span>, number of bootstrap times <span class="math inline">\(B\)</span>, the cluster (default as <code>NULL</code>, no parallel), method (can be input as ‘lm’, ‘lmR’, ‘lmC’). The output will be a list including original formula and the estimate coefficient and sigma from weighted linear regression for each little bag of bootstrap in each subsample.</p>
+<p>To get a high computing performance, the users can use cluster in parallel package for parallel computing. Also, given split data, the users can input the path of these data and distribute them into separate workers if they already establish multiple cores. For calculation of the basic function <code>lm1()</code>, if the method is ‘lm’, it will use <code>lm()</code> function in R directly. If the method is ‘lmR’, it will calculate the estimate coefficient and sigma on base R calculation. However, if the method is ‘lmC’, it will call a written Rcpp function <code>lmC()</code> which will calculate estimations by C++ method.</p>
+<p>With the result of <code>blblm()</code>, we can take advantage to calculate the the estimation coefficient, sigma and prediction as well as their confidence interval by bootstrap method. I define <code>coef()</code> to get the estimated coefficient; <code>confint()</code> to get it’s confidence interval; <code>sigma()</code> to get the estimated sigma, with choice of <code>confidence = TRUE</code> to get the confidence interval as well; <code>predict()</code> to get the estimated prediction given a new data, with choice of <code>confidence = TRUE</code> to get the confidence interval as well. In order to make use of cluster, I also provide the choice to use cluster in these export functions.</p>
+<p>Now I will use some data set and make multiple choice to compare the computing performance.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb1-1" title="1"><span class="kw">library</span>(blblm)</a>
+<a class="sourceLine" id="cb1-2" title="2"><span class="kw">library</span>(parallel)</a></code></pre></div>
+</div>
+<div id="parallelization" class="section level3">
+<h3>Parallelization</h3>
+<p>For a given data <code>mtcars</code> in base R, I use little bootstrap method to for the linear regression <code>mpg ~ wt * hp</code>. In order to use parallel, I create a cluster firstly.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb2-1" title="1"><span class="co"># make a cluster</span></a>
+<a class="sourceLine" id="cb2-2" title="2">cl =<span class="st"> </span><span class="kw">makeCluster</span>(<span class="dv">2</span>) </a></code></pre></div>
+<p>Then I compare the running time of this process without or with parallelization.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb3-1" title="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb3-2" title="2">  <span class="dt">fit_no =</span> <span class="kw">blblm</span>(mpg <span class="op">~</span><span class="st"> </span>wt <span class="op">*</span><span class="st"> </span>hp, <span class="dt">data =</span> mtcars, <span class="dt">m =</span> <span class="dv">4</span>,<span class="dt">B =</span> <span class="dv">200</span>),</a>
+<a class="sourceLine" id="cb3-3" title="3">  <span class="dt">fit_cl =</span> <span class="kw">blblm</span>(mpg <span class="op">~</span><span class="st"> </span>wt <span class="op">*</span><span class="st"> </span>hp, <span class="dt">data =</span> mtcars, <span class="dt">m =</span> <span class="dv">4</span>,<span class="dt">B =</span> <span class="dv">200</span>, <span class="dt">cluster =</span> cl),</a>
+<a class="sourceLine" id="cb3-4" title="4">  <span class="dt">check =</span> <span class="ot">FALSE</span>,</a>
+<a class="sourceLine" id="cb3-5" title="5">  <span class="dt">relative =</span> <span class="ot">TRUE</span></a>
+<a class="sourceLine" id="cb3-6" title="6">)</a>
+<a class="sourceLine" id="cb3-7" title="7"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
+<a class="sourceLine" id="cb3-8" title="8"><span class="co">#&gt;   expression   min median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb3-9" title="9"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb3-10" title="10"><span class="co">#&gt; 1 fit_no      1.87   1.79      1         16.6      Inf</span></a>
+<a class="sourceLine" id="cb3-11" title="11"><span class="co">#&gt; 2 fit_cl      1      1         1.79       1        NaN</span></a></code></pre></div>
+<p>The result shows the <code>blblm()</code> with parallelization is about twice faster than without it. However, the time is not the quarter of the time without cluster even we set four cores and split data into four parts. The reason can be that the assignment will consume time and running four GPUs will not have a good performance. Also, the size of the data and test time is not too large so the difference is not so clear. On the other hand, the allocated memory for parallel is much less than without it, which is also an improvement.</p>
+</div>
+<div id="distribution" class="section level3">
+<h3>Distribution</h3>
+<p>If the input data is the whole data set, first of all, it will be divided into several sub-data randomly and evenly. Besides, I provide the choice for the users to input a set of file paths, where the data has already split into several files. Moreover, if users also input the clusters from parallel package, each file will be distributed into a worker automatically, which will minimize memory usage.</p>
+<p>In order to get a satisfied result, we create <span class="math inline">\(100\)</span> files, and each of them contains <span class="math inline">\(100\)</span> cases of x and y. We save them in the “files” folder.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb4-1" title="1">file_names &lt;-<span class="st"> </span><span class="kw">file.path</span>(<span class="st">&quot;files&quot;</span>, <span class="kw">list.files</span>(<span class="st">&quot;files&quot;</span>))</a>
+<a class="sourceLine" id="cb4-2" title="2">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb4-3" title="3">    <span class="dt">fit_no =</span> <span class="kw">blblm</span>(y <span class="op">~</span><span class="st"> </span>x, <span class="dt">files =</span> file_names, <span class="dt">B =</span> <span class="dv">100</span>),</a>
+<a class="sourceLine" id="cb4-4" title="4">    <span class="dt">fit_cl =</span> <span class="kw">blblm</span>(y <span class="op">~</span><span class="st"> </span>x, <span class="dt">files =</span> file_names, <span class="dt">B =</span> <span class="dv">100</span>, <span class="dt">cluster =</span> cl),</a>
+<a class="sourceLine" id="cb4-5" title="5">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">relative =</span> <span class="ot">TRUE</span></a>
+<a class="sourceLine" id="cb4-6" title="6">)</a>
+<a class="sourceLine" id="cb4-7" title="7"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
+<a class="sourceLine" id="cb4-8" title="8"><span class="co">#&gt;   expression   min median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb4-9" title="9"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb4-10" title="10"><span class="co">#&gt; 1 fit_no      1.89   1.89      1        1138.      Inf</span></a>
+<a class="sourceLine" id="cb4-11" title="11"><span class="co">#&gt; 2 fit_cl      1      1         1.89        1       NaN</span></a></code></pre></div>
+<p>From the result, the distribution can be three time faster by the cluster, at the same time, it saves much memory space as we can expect. Thus, when we deal with many files, the distribution method can make a great promotion on both time and space.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb5-1" title="1">fit =<span class="st"> </span><span class="kw">blblm</span>(y <span class="op">~</span><span class="st"> </span>x, <span class="dt">files =</span> file_names, <span class="dt">B =</span> <span class="dv">100</span>, <span class="dt">cluster =</span> cl)</a>
+<a class="sourceLine" id="cb5-2" title="2"></a>
+<a class="sourceLine" id="cb5-3" title="3">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb5-4" title="4">  <span class="dt">conf_no =</span> <span class="kw">confint</span>(fit), <span class="dt">conf_cl =</span> <span class="kw">confint</span>(fit, <span class="dt">cluster =</span> cl),<span class="dt">relative =</span> <span class="ot">TRUE</span> </a>
+<a class="sourceLine" id="cb5-5" title="5">)</a>
+<a class="sourceLine" id="cb5-6" title="6"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
+<a class="sourceLine" id="cb5-7" title="7"><span class="co">#&gt;   expression   min median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb5-8" title="8"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb5-9" title="9"><span class="co">#&gt; 1 conf_no     1      1         5.74      2.83      Inf</span></a>
+<a class="sourceLine" id="cb5-10" title="10"><span class="co">#&gt; 2 conf_cl     1.61   1.66      1         1         NaN</span></a>
+<a class="sourceLine" id="cb5-11" title="11">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb5-12" title="12">  <span class="dt">sigma_no =</span> <span class="kw">sigma</span>(fit,<span class="dt">confidence =</span> <span class="ot">TRUE</span>), </a>
+<a class="sourceLine" id="cb5-13" title="13">  <span class="dt">sigma_cl =</span> <span class="kw">sigma</span>(fit,<span class="dt">confidence =</span> <span class="ot">TRUE</span>, <span class="dt">cluster =</span> cl), </a>
+<a class="sourceLine" id="cb5-14" title="14">  <span class="dt">relative =</span> <span class="ot">TRUE</span> </a>
+<a class="sourceLine" id="cb5-15" title="15">)</a>
+<a class="sourceLine" id="cb5-16" title="16"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
+<a class="sourceLine" id="cb5-17" title="17"><span class="co">#&gt;   expression   min median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb5-18" title="18"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb5-19" title="19"><span class="co">#&gt; 1 sigma_no     1      1        15.2      1.50      Inf</span></a>
+<a class="sourceLine" id="cb5-20" title="20"><span class="co">#&gt; 2 sigma_cl    22.0   15.2       1        1         NaN</span></a>
+<a class="sourceLine" id="cb5-21" title="21">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb5-22" title="22">  <span class="dt">pred_no =</span> <span class="kw">predict</span>(fit, <span class="kw">data.frame</span>(<span class="dt">x =</span> <span class="kw">c</span>(<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>)), <span class="dt">confidence =</span> <span class="ot">TRUE</span>),</a>
+<a class="sourceLine" id="cb5-23" title="23">  <span class="dt">pred_cl =</span> <span class="kw">predict</span>(fit, <span class="kw">data.frame</span>(<span class="dt">x =</span> <span class="kw">c</span>(<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">3</span>,<span class="dv">4</span>,<span class="dv">5</span>)), <span class="dt">confidence =</span> <span class="ot">TRUE</span>, <span class="dt">cluster =</span> cl), </a>
+<a class="sourceLine" id="cb5-24" title="24">  <span class="dt">relative =</span> <span class="ot">TRUE</span> </a>
+<a class="sourceLine" id="cb5-25" title="25">)</a>
+<a class="sourceLine" id="cb5-26" title="26"><span class="co">#&gt; # A tibble: 2 x 6</span></a>
+<a class="sourceLine" id="cb5-27" title="27"><span class="co">#&gt;   expression   min median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb5-28" title="28"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb5-29" title="29"><span class="co">#&gt; 1 pred_no     1      1         7.36      502.      Inf</span></a>
+<a class="sourceLine" id="cb5-30" title="30"><span class="co">#&gt; 2 pred_cl     7.47   7.36      1           1       NaN</span></a></code></pre></div>
+<p>From the result the parallelization has little help for time on the export functions <code>confint()</code>, <code>sigma()</code>, <code>predict()</code>. The reason can be that the number of subsamples is too small to make parallel computation, since running four GPUs also cost time. However, if we focus more on the memory, we can still choose cluster, which has an obvious reduction on allocated memory.</p>
+</div>
+<div id="rcpp" class="section level3">
+<h3>Rcpp</h3>
+<p>In original <code>blblm()</code>, we call <code>lm()</code> function in R to get the estimate coefficient and sigma for each bootstrap. However, it is a waste since <code>lm()</code> will calculate many other statistics. In order to reduce the computation, we add two more method, “lmR” and “lmC”, and the original method is defaulted as “lm”. “lmR” will use base R function to calculate the estimate coefficient and sigma by <span class="math display">\[\hat\beta = (X^\top X)^{-1}X^\top Y \text{ and } 
+\hat\sigma^2 = \|Y-X\hat\beta\|_2^2/(n-p)\]</span> where <span class="math inline">\(X\)</span> is design matrix and <span class="math inline">\(Y\)</span> is response vector by formula. <span class="math inline">\(n\)</span> is the size of whole data and <span class="math inline">\(p\)</span> is the rank of <span class="math inline">\(X\)</span>. Furthermore, it can still be improved by written in C++ code. Here we use RcppArmadillo package to make linear algebra computation.</p>
+<p>We split mtcars data into <span class="math inline">\(4\)</span> parts and use cluster to make parallelization. Then we compare three different methods when computing estimations of weighted linear regression. In order to get a obvious result, we run little bag of bootstrap <span class="math inline">\(5000\)</span> times.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb6-1" title="1">bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb6-2" title="2">  <span class="dt">fit_lm =</span> <span class="kw">blblm</span>(mpg <span class="op">~</span><span class="st"> </span>wt <span class="op">*</span><span class="st"> </span>hp, <span class="dt">data =</span> mtcars, <span class="dt">m =</span> <span class="dv">4</span>,<span class="dt">B =</span> <span class="dv">5000</span>, <span class="dt">cluster =</span> cl),</a>
+<a class="sourceLine" id="cb6-3" title="3">  <span class="dt">fit_lmR =</span> <span class="kw">blblm</span>(mpg <span class="op">~</span><span class="st"> </span>wt <span class="op">*</span><span class="st"> </span>hp, <span class="dt">data =</span> mtcars, <span class="dt">m =</span> <span class="dv">4</span>,<span class="dt">B =</span> <span class="dv">5000</span>, <span class="dt">cluster =</span> cl,<span class="dt">method =</span> <span class="st">&quot;lmR&quot;</span>),</a>
+<a class="sourceLine" id="cb6-4" title="4">  <span class="dt">fit_lmC =</span> <span class="kw">blblm</span>(mpg <span class="op">~</span><span class="st"> </span>wt <span class="op">*</span><span class="st"> </span>hp, <span class="dt">data =</span> mtcars, <span class="dt">m =</span> <span class="dv">4</span>,<span class="dt">B =</span> <span class="dv">5000</span>, <span class="dt">cluster =</span> cl,<span class="dt">method =</span> <span class="st">&quot;lmC&quot;</span>),</a>
+<a class="sourceLine" id="cb6-5" title="5">  <span class="dt">check =</span> <span class="ot">FALSE</span>, <span class="dt">relative =</span> <span class="ot">TRUE</span></a>
+<a class="sourceLine" id="cb6-6" title="6">)</a>
+<a class="sourceLine" id="cb6-7" title="7"><span class="co">#&gt; # A tibble: 3 x 6</span></a>
+<a class="sourceLine" id="cb6-8" title="8"><span class="co">#&gt;   expression   min median `itr/sec` mem_alloc `gc/sec`</span></a>
+<a class="sourceLine" id="cb6-9" title="9"><span class="co">#&gt;   &lt;bch:expr&gt; &lt;dbl&gt;  &lt;dbl&gt;     &lt;dbl&gt;     &lt;dbl&gt;    &lt;dbl&gt;</span></a>
+<a class="sourceLine" id="cb6-10" title="10"><span class="co">#&gt; 1 fit_lm      1.17   1.17      1            1      NaN</span></a>
+<a class="sourceLine" id="cb6-11" title="11"><span class="co">#&gt; 2 fit_lmR     1.01   1.01      1.16         1      NaN</span></a>
+<a class="sourceLine" id="cb6-12" title="12"><span class="co">#&gt; 3 fit_lmC     1      1         1.17         1      Inf</span></a></code></pre></div>
+<p>The result shows that Rcpp method “lmC” is faster than R method “lmR”, which is faster than <code>lm</code> method. Actually we successfully run parallel as well as Rcpp file at the same time and it gets a great result.</p>
+</div>
+<div id="conclusion" class="section level3">
+<h3>Conclusion</h3>
+<p>Let’s look back at the <span class="math inline">\(100\)</span> subsamples in files. Now we choose cluster to do distribution or no cluster, and three different methods to calculate estimations.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb7-1" title="1">results &lt;-<span class="st"> </span>bench<span class="op">::</span><span class="kw">press</span>(</a>
+<a class="sourceLine" id="cb7-2" title="2">  <span class="dt">method =</span> <span class="kw">c</span>(<span class="st">&quot;lm&quot;</span>,<span class="st">&quot;lmR&quot;</span>,<span class="st">&quot;lmC&quot;</span>),</a>
+<a class="sourceLine" id="cb7-3" title="3">  {</a>
+<a class="sourceLine" id="cb7-4" title="4">    bench<span class="op">::</span><span class="kw">mark</span>(</a>
+<a class="sourceLine" id="cb7-5" title="5">        <span class="dt">fit_no =</span> <span class="kw">blblm</span>(y <span class="op">~</span><span class="st"> </span>x, <span class="dt">files =</span> file_names, <span class="dt">B =</span> <span class="dv">100</span>, <span class="dt">method =</span> method),</a>
+<a class="sourceLine" id="cb7-6" title="6">        <span class="dt">fit_cl =</span> <span class="kw">blblm</span>(y <span class="op">~</span><span class="st"> </span>x, <span class="dt">files =</span> file_names, <span class="dt">B =</span> <span class="dv">100</span>, <span class="dt">cluster =</span> cl, <span class="dt">method =</span> method),</a>
+<a class="sourceLine" id="cb7-7" title="7">      <span class="dt">check =</span> <span class="ot">FALSE</span></a>
+<a class="sourceLine" id="cb7-8" title="8">    )</a>
+<a class="sourceLine" id="cb7-9" title="9">  }</a>
+<a class="sourceLine" id="cb7-10" title="10">)</a>
+<a class="sourceLine" id="cb7-11" title="11"><span class="co">#&gt; Running with:</span></a>
+<a class="sourceLine" id="cb7-12" title="12"><span class="co">#&gt;   method</span></a>
+<a class="sourceLine" id="cb7-13" title="13"><span class="co">#&gt; 1 lm</span></a>
+<a class="sourceLine" id="cb7-14" title="14"><span class="co">#&gt; 2 lmR</span></a>
+<a class="sourceLine" id="cb7-15" title="15"><span class="co">#&gt; 3 lmC</span></a>
+<a class="sourceLine" id="cb7-16" title="16">ggplot2<span class="op">::</span><span class="kw">autoplot</span>(results,<span class="dt">type =</span> <span class="st">&quot;beeswarm&quot;</span>)</a>
+<a class="sourceLine" id="cb7-17" title="17"><span class="co">#&gt; Loading required namespace: tidyr</span></a></code></pre></div>
+<p><img src="data:image/png;base64,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" /><!-- --></p>
+<p>The plot shows that the cluster can significantly reduce the time, also, the method “lmC” is faster than “lmR”, and is faster than “lm”.</p>
+<p>In conclusion, when the number of subsamples is large, we can use parallelization and distribution to save the running time as well as minimize memory usage. While the time of bootstrap is huge, we can use Rcpp function to implement calculation, which will also save much time.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><a class="sourceLine" id="cb8-1" title="1"><span class="kw">stopCluster</span>(cl) <span class="co"># stop the cluster</span></a></code></pre></div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
