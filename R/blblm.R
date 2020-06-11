@@ -48,8 +48,8 @@ blblm <- function(formula, files = NULL, n = NULL, data = NULL, m = 10, B = 5000
 
     else {
       # cl <- makeCluster(n_cores)
-      clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma"))
-      if(method == "lmC") clusterEvalQ(cluster, { Rcpp::sourceCpp("src/lmC.cpp"); })
+      clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma", "lmC"),envir=environment())
+      #if(method == "lmC") clusterEvalQ(cluster, { Rcpp::sourceCpp("src/lmC.cpp"); })
       estimates <- parLapply(cluster, data_list,
             function(x) lm_each_subsample(formula = formula, data = x, n = nrow(data), B = B, method = method))
       # stopCluster(cl)
@@ -69,8 +69,8 @@ blblm <- function(formula, files = NULL, n = NULL, data = NULL, m = 10, B = 5000
         library(tidyverse)
         NULL
       }))
-      clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma"))
-      if(method == "lmC") clusterEvalQ(cluster, { Rcpp::sourceCpp("src/lmC.cpp"); })
+      clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma", "lmC"),envir=environment())
+      #if(method == "lmC") clusterEvalQ(cluster, { Rcpp::sourceCpp("src/lmC.cpp"); })
 
       estimates <- parLapply(cluster, files, function(fname) {
         df <- read_csv(fname, col_types = cols())
@@ -221,7 +221,7 @@ sigma.blblm <- function(object, confidence = FALSE, level = 0.95, cluster = NULL
   }
   else {
     # cl <- makeCluster(n_cores)
-    clusterExport(cluster, c("map_dbl"))
+    clusterExport(cluster, c("map_dbl"),envir=environment())
     sigma <- mean(parSapply(cluster, est, function(x) mean(map_dbl(x, "sigma"))))
     if (confidence) {
       alpha <- 1 - level
@@ -247,7 +247,7 @@ coef.blblm <- function(object, cluster = NULL,...) {
   }
   else {
     #cl <- makeCluster(n_cores)
-    clusterExport(cluster, c("map_cbind","%>%","map","reduce"))
+    clusterExport(cluster, c("map_cbind","%>%","map","reduce"),envir=environment())
     coefs = parSapply(cluster, est, function(x) apply(map_cbind(x,"coef"),1,mean))
     parApply(cluster, coefs, 1, mean)
     #stopCluster(cl)
@@ -270,7 +270,7 @@ confint.blblm <- function(object, parm = NULL, level = 0.95, cluster = NULL,...)
   }
   else{
     #cl <- makeCluster(n_cores)
-    clusterExport(cluster, c("map_dbl"))
+    clusterExport(cluster, c("map_dbl"),envir=environment())
     get_interval <- function(parm){
       coef_int = sapply(est, function(x) quantile(map_dbl(x, list("coef", parm)),c(alpha / 2, 1 - alpha / 2), na.rm = TRUE))
       apply(coef_int, 1, mean)

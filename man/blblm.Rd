@@ -21,7 +21,7 @@ blblm(
 
 \item{files}{allow user to inpute the path of files to do distribution, only support csv file}
 
-\item{n}{if users input files, they should also input the size of whole data}
+\item{n}{the size of whole data, if NULL, we will assume the size of subdata is even}
 
 \item{data}{data for linear regression}
 
