@@ -1,0 +1,147 @@
+---
+title: "Final Project:  Linear Regression with Little Bag of Bootstraps by Parallel and Rcpp"
+author: "Yahui Li"
+date: "June 10, 2020"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{my-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette is a report of final project in STA141C, 2020 Spring. Our goal is to implement the little bag of bootstrap in linear regression to get the estimation and confidence interval of coefficients, sigma and prediction. At the same time, make use of multiple ways for high performance statistical computing, such as parallel computing, distribution and Rcpp. 
+
+### Overview
+
+The main function to make the little bag of bootstrap of linear regression on the data set is `blblm()`. The input has formula, data, files, number of subsamples $m$, number of bootstrap times $B$, the cluster (default as `NULL`, no parallel), method (can be input as 'lm', 'lmR', 'lmC'). The output will be a list including original formula and the estimate coefficient and sigma from weighted linear regression for each little bag of bootstrap in each subsample. 
+
+To get a high computing performance, the users can use cluster in parallel package for parallel computing. Also, given split data, the users can input the path of these data and distribute them into separate workers if they already establish multiple cores. For calculation of the basic function `lm1()`, if the method is 'lm', it will use `lm()` function in R directly. If the method is 'lmR', it will calculate the estimate coefficient and sigma on base R calculation. However, if the method is 'lmC', it will call a written Rcpp function `lmC()` which will calculate estimations by C++ method. 
+
+With the result of `blblm()`, we can take advantage to calculate the the estimation coefficient, sigma and prediction as well as their confidence interval by bootstrap method. I define `coef()` to get the estimated coefficient; `confint()` to get it's confidence interval; `sigma()` to get the estimated sigma, with choice of `confidence = TRUE` to get the confidence interval as well; `predict()` to get the estimated prediction given a new data, with choice of `confidence = TRUE` to get the confidence interval as well. In order to make use of cluster, I also provide the choice to use cluster in these export functions. 
+
+Now I will use some data set and make multiple choice to compare the computing performance.
+
+
+```{r setup}
+library(blblm)
+library(parallel)
+```
+
+### Parallelization
+
+
+For a given data `mtcars` in base R, I use little bootstrap method to for the linear regression `mpg ~ wt * hp`. In order to use parallel, I create a cluster firstly. 
+
+```{r clutser}
+# make a cluster
+cl = makeCluster(2) 
+```
+
+Then I compare the running time of this process without or with parallelization.
+
+```{r parallel, warning=FALSE, paged.print = FALSE}
+bench::mark(
+  fit_no = blblm(mpg ~ wt * hp, data = mtcars, m = 4,B = 200),
+  fit_cl = blblm(mpg ~ wt * hp, data = mtcars, m = 4,B = 200, cluster = cl),
+  check = FALSE,
+  relative = TRUE
+)
+```
+
+The result shows the `blblm()` with parallelization is about twice faster than without it. However, the time is not the quarter of the time without cluster even we set four cores and split data into four parts. The reason can be that the assignment will consume time and running four GPUs will not have a good performance. Also, the size of the data and test time is not too large so the difference is not so clear. On the other hand, the allocated memory for parallel is much less than without it, which is also an improvement.
+
+### Distribution
+
+If the input data is the whole data set, first of all, it will be divided into several sub-data randomly and evenly. Besides, I provide the choice for the users to input a set of file paths, where the data has already split into several files. Moreover, if users also input the clusters from parallel package, each file will be distributed into a worker automatically, which will minimize memory usage.
+
+In order to get a satisfied result, we create $100$ files, and each of them contains $100$ cases of x and y. We save them in the "files" folder.
+
+```{r distribution, warning=FALSE, paged.print = FALSE}
+file_names <- file.path("files", list.files("files"))
+bench::mark(
+    fit_no = blblm(y ~ x, files = file_names, B = 100),
+    fit_cl = blblm(y ~ x, files = file_names, B = 100, cluster = cl),
+  check = FALSE, relative = TRUE
+)
+
+```
+
+From the result, the distribution can be three time faster by the cluster, at the same time, it saves much memory space as we can expect. Thus, when we deal with many files, the distribution method can make a great promotion on both time and space.
+
+```{r estimation, warning=FALSE, paged.print = FALSE}
+fit = blblm(y ~ x, files = file_names, B = 100, cluster = cl)
+
+bench::mark(
+  conf_no = confint(fit), conf_cl = confint(fit, cluster = cl),relative = TRUE 
+)
+bench::mark(
+  sigma_no = sigma(fit,confidence = TRUE), 
+  sigma_cl = sigma(fit,confidence = TRUE, cluster = cl), 
+  relative = TRUE 
+)
+bench::mark(
+  pred_no = predict(fit, data.frame(x = c(1,2,3,4,5)), confidence = TRUE),
+  pred_cl = predict(fit, data.frame(x = c(1,2,3,4,5)), confidence = TRUE, cluster = cl), 
+  relative = TRUE 
+)
+```
+
+From the result the parallelization has little help for time on the export functions `confint()`, `sigma()`, `predict()`. The reason can be that the number of subsamples is too small to make parallel computation, since running four GPUs also cost time. However, if we focus more on the memory, we can still choose cluster, which has an obvious reduction on allocated memory.
+
+
+
+### Rcpp
+
+In original `blblm()`, we call `lm()` function in R to get the estimate coefficient and sigma for each bootstrap. However, it is a waste since `lm()` will calculate many other statistics. In order to reduce the computation, we add two more method, "lmR" and "lmC", and the original method is defaulted as "lm". "lmR" will use base R function to calculate the estimate coefficient and sigma by
+$$\hat\beta = (X^\top X)^{-1}X^\top Y \text{ and } 
+\hat\sigma^2 = \|Y-X\hat\beta\|_2^2/(n-p)$$
+where $X$ is design matrix and $Y$ is response vector by formula. $n$ is the size of whole data and $p$ is the rank of $X$. Furthermore, it can still be improved by written in C++ code. Here we use RcppArmadillo package to make linear algebra computation.
+
+We split mtcars data into $4$ parts and use cluster to make parallelization. Then we compare three different methods when computing estimations of weighted linear regression. In order to get a obvious result, we run little bag of bootstrap $5000$ times.
+
+```{r rcpp, warning=FALSE, paged.print = FALSE}
+bench::mark(
+  fit_lm = blblm(mpg ~ wt * hp, data = mtcars, m = 4,B = 5000, cluster = cl),
+  fit_lmR = blblm(mpg ~ wt * hp, data = mtcars, m = 4,B = 5000, cluster = cl,method = "lmR"),
+  fit_lmC = blblm(mpg ~ wt * hp, data = mtcars, m = 4,B = 5000, cluster = cl,method = "lmC"),
+  check = FALSE, relative = TRUE
+)
+
+```
+
+The result shows that Rcpp method "lmC" is faster than R method "lmR", which is faster than `lm` method. Actually we successfully run parallel as well as Rcpp file at the same time and it gets a great result. 
+
+### Conclusion
+
+Let's look back at the $100$ subsamples in files. Now we choose cluster to do distribution or no cluster, and three different methods to calculate estimations.
+
+```{r conclusion, warning=FALSE, fig.width = 7}
+results <- bench::press(
+  method = c("lm","lmR","lmC"),
+  {
+    bench::mark(
+        fit_no = blblm(y ~ x, files = file_names, B = 100, method = method),
+        fit_cl = blblm(y ~ x, files = file_names, B = 100, cluster = cl, method = method),
+      check = FALSE
+    )
+  }
+)
+ggplot2::autoplot(results)
+```
+
+The plot shows that the cluster can significantly reduce the time, also, the method "lmC" is faster than "lmR", and is faster than "lm". 
+
+In conclusion, when the number of subsamples is large, we can use parallelization and distribution to save the running time as well as minimize memory usage. While the time of bootstrap is huge, we can use Rcpp function to implement calculation, which will also save much time. 
+
+```{r}
+stopCluster(cl) # stop the cluster
+```
+
+

@@ -9,6 +9,7 @@
 library(blblm)
 library(parallel)
 cl = makeCluster(4)
+
 fit <- blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100, cluster = cl, method = "lmC")
 coef(fit)
 #> (Intercept)          wt          hp       wt:hp 
@@ -29,13 +30,12 @@ predict(fit, data.frame(wt = c(2.5, 3), hp = c(150, 170)), confidence = TRUE)
 #>        fit      lwr      upr
 #> 1 21.55538 20.02457 22.48764
 #> 2 18.80785 17.50654 19.71772
-stopCluster(cl)
 
-file_names <- file.path("inst/extdata/flights", list.files("inst/extdata/flights"))
+
+file_names <- file.path("vignettes/flights", list.files("vignettes/flights"))
 m <- length(file_names)
 n <- nrow(nycflights13::flights)
-cl <- makeCluster(4)
-fit <- blblm(arr_delay ~ dep_delay + flight + distance, file_names = file_names, n = n, B = 5000, cluster = cl)
+fit <- blblm(arr_delay ~ dep_delay + flight + distance, files = file_names, B = 100, cluster = cl)
 sigma(fit, confidence = TRUE)
 #>   sigma      lwr      upr 
 #> 17.92746 17.84843 18.00715 
@@ -48,8 +48,14 @@ predict(fit, data.frame(dep_delay = c(-10,-30), flight = c(1000, 500), distance 
 #>       fit       lwr       upr
 #> 1 -17.2709 -17.35900 -17.18289
 #> 2 -41.3272 -41.54626 -41.11114
+
+
+file_names <- file.path("vignettes/files", list.files("vignettes/files"))
+fit <- blblm(y~x, files = file_names, B = 50, cluster = cl)
+coef(fit)
+#> (Intercept)           x 
+#> -0.01803419  0.02715120 
+
+
 stopCluster(cl)
-
-
-
 ```
