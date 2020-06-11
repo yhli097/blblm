@@ -14,6 +14,10 @@ Suggests:
 Imports: 
     purrr,
     magrittr,
-    readr
+    readr,
+    Rcpp
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.0
+LinkingTo: 
+    Rcpp,
+    RcppArmadillo

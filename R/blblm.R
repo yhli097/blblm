@@ -21,7 +21,7 @@ utils::globalVariables(c("."))
 #'
 #' @param formula formula for linear regression
 #' @param files allow user to inpute the path of files to do distribution, only support csv file
-#' @param n if users input files, they should also input the size of whole data
+#' @param n the size of whole data, if NULL, we will assume the size of subdata is even
 #' @param data data for linear regression
 #' @param m the number of subsamples divided by the whole data
 #' @param B the time of little bag of bootstrap
@@ -49,18 +49,17 @@ blblm <- function(formula, files = NULL, n = NULL, data = NULL, m = 10, B = 5000
     else {
       # cl <- makeCluster(n_cores)
       clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma"))
+      if(method == "lmC") clusterEvalQ(cluster, { Rcpp::sourceCpp("src/lmC.cpp"); })
       estimates <- parLapply(cluster, data_list,
             function(x) lm_each_subsample(formula = formula, data = x, n = nrow(data), B = B, method = method))
       # stopCluster(cl)
     }
   }
   else{
-    if(is.null(n)){
-      stop("ERROR: you need to input the size of the whole data!")
-    }
-    else if(is.null(cluster)){
+    if(is.null(cluster)){
       estimates <- lapply(files, function(fname) {
         df <- read_csv(fname, col_types = cols())
+        if(is.null(n)) n <- nrow(df) * length(files)
         lm_each_subsample(formula = formula, data = df, n = n, B = B, method = method)
       })
     }
@@ -71,9 +70,11 @@ blblm <- function(formula, files = NULL, n = NULL, data = NULL, m = 10, B = 5000
         NULL
       }))
       clusterExport(cluster, c("lm_each_subsample","lm_each_boot","lm1","blbcoef","blbsigma"))
+      if(method == "lmC") clusterEvalQ(cluster, { Rcpp::sourceCpp("src/lmC.cpp"); })
 
       estimates <- parLapply(cluster, files, function(fname) {
         df <- read_csv(fname, col_types = cols())
+        if(is.null(n)) n <- nrow(df) * length(files)
         lm_each_subsample(formula = formula, data = df, n = n, B = B, method = method)
       })
     }
@@ -144,22 +145,28 @@ lm1 <- function(formula, data, freqs, method) {
   }
   else{
     X <- model.matrix(formula, data)
-    p <- dim(X)[2]
+    name <- colnames(X)
+    p <- length(name)
     y <- model.response(model.frame(formula, data))
     W <- diag(as.vector(freqs))
     n <- sum(freqs)
     if(method == "lmR"){
       coef_lmR <- solve(t(X)%*%W%*%X, t(X)%*%W%*%y)
-      name <- rownames(coef_lmR)
       coef_lmR <- as.numeric(coef_lmR)
       names(coef_lmR) <- name
 
-      sigma_lmR <- sqrt(sum(freqs*(y-X %*% coef_lmR)^2)/(n-p))
+      sigma_lmR <- sqrt(sum(W %*%(y-X %*% coef_lmR)^2)/(n-p))
 
       list(coef = coef_lmR, sigma = sigma_lmR)
     }
-    else{
-
+    else if(method == "lmC"){
+      fitC <- lmC(X,y,W,n,p)
+      fitC$coef <- as.numeric(fitC$coef)
+      names(fitC$coef) <- name
+      fitC
+    }
+    else {
+      stop("There are only three methods: lm, lmR, lmC")
     }
   }
 
@@ -205,7 +212,7 @@ sigma.blblm <- function(object, confidence = FALSE, level = 0.95, cluster = NULL
     if (confidence) {
       alpha <- 1 - level
       limits <- est %>%
-        map_mean(~ quantile(map_dbl(., "sigma"), c(alpha / 2, 1 - alpha / 2))) %>%
+        map_mean(~ quantile(map_dbl(., "sigma"), c(alpha / 2, 1 - alpha / 2), na.rm = TRUE)) %>%
         set_names(NULL)
       return(c(sigma = sigma, lwr = limits[1], upr = limits[2]))
     } else {
@@ -219,7 +226,7 @@ sigma.blblm <- function(object, confidence = FALSE, level = 0.95, cluster = NULL
     if (confidence) {
       alpha <- 1 - level
       limits <- parSapply(cluster, est,
-                  function(x) quantile(map_dbl(x, "sigma"), c(alpha / 2, 1 - alpha / 2)))
+                  function(x) quantile(map_dbl(x, "sigma"), c(alpha / 2, 1 - alpha / 2), na.rm = TRUE))
       limits <- parApply(cluster, limits, 1, mean)
       limits <- as.numeric(limits)
       return(c(sigma = sigma, lwr = limits[1], upr = limits[2]))
@@ -258,14 +265,14 @@ confint.blblm <- function(object, parm = NULL, level = 0.95, cluster = NULL,...)
   est <- object$estimates
   if(is.null(cluster)){
     out <- map_rbind(parm, function(p) {
-      map_mean(est, ~ map_dbl(., list("coef", p)) %>% quantile(c(alpha / 2, 1 - alpha / 2)))
+      map_mean(est, ~ map_dbl(., list("coef", p)) %>% quantile(c(alpha / 2, 1 - alpha / 2), na.rm = TRUE))
     })
   }
   else{
     #cl <- makeCluster(n_cores)
     clusterExport(cluster, c("map_dbl"))
     get_interval <- function(parm){
-      coef_int = sapply(est, function(x) quantile(map_dbl(x, list("coef", parm)),c(alpha / 2, 1 - alpha / 2)))
+      coef_int = sapply(est, function(x) quantile(map_dbl(x, list("coef", parm)),c(alpha / 2, 1 - alpha / 2), na.rm = TRUE))
       apply(coef_int, 1, mean)
     }
     out <- parSapply(cluster, parm, get_interval)
@@ -283,7 +290,7 @@ confint.blblm <- function(object, parm = NULL, level = 0.95, cluster = NULL,...)
 #' @method predict blblm
 predict.blblm <- function(object, new_data, confidence = FALSE, level = 0.95, cluster = NULL,...) {
   est <- object$estimates
-  X <- model.matrix(reformulate(attr(terms(object$formula), "term.labels")), new_data)
+  X <- model.matrix(reformulate(attr(terms.formula(object$formula,data = new_data), "term.labels")), new_data)
   if(is.null(cluster)){
     if (confidence) {
       map_mean(est, ~ map_cbind(., ~ X %*% .$coef) %>%
@@ -299,7 +306,7 @@ predict.blblm <- function(object, new_data, confidence = FALSE, level = 0.95, cl
       alpha <- 1 - level
       pred_get_interval = function(x){
         t(apply(sapply(x, function(y) X %*% y$coef),1,
-            function(y) c( mean(y), quantile(y,c(alpha / 2, 1 - alpha / 2)))))}
+            function(y) c( mean(y), quantile(y,c(alpha / 2, 1 - alpha / 2), na.rm = TRUE))))}
       intervals <- parLapply(cluster, est, pred_get_interval)
       result <- Reduce("+",intervals)/length(intervals)
       rownames(result) <- seq_len(dim(result)[1])
@@ -320,7 +327,7 @@ predict.blblm <- function(object, new_data, confidence = FALSE, level = 0.95, cl
 #' @param level the confidence level of confidence interval
 mean_lwr_upr <- function(x, level = 0.95) {
   alpha <- 1 - level
-  c(fit = mean(x), quantile(x, c(alpha / 2, 1 - alpha / 2)) %>% set_names(c("lwr", "upr")))
+  c(fit = mean(x), quantile(x, c(alpha / 2, 1 - alpha / 2), na.rm = TRUE) %>% set_names(c("lwr", "upr")))
 }
 
 #' get the mean of the estimates in subsamples by column

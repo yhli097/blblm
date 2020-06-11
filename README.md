@@ -9,7 +9,7 @@
 library(blblm)
 library(parallel)
 cl = makeCluster(4)
-fit <- blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100, cluster = cl)
+fit <- blblm(mpg ~ wt * hp, data = mtcars, m = 3, B = 100, cluster = cl, method = "lmC")
 coef(fit)
 #> (Intercept)          wt          hp       wt:hp 
 #> 48.88428523 -7.88702986 -0.11576659  0.02600976
