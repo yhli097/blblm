@@ -21,7 +21,8 @@ Suggests:
     rmarkdown,
     tidyverse,
     bench,
-    ggplot2
+    ggplot2,
+    ggbeeswarm
 Imports: 
     purrr,
     magrittr,

@@ -133,7 +133,7 @@ results <- bench::press(
     )
   }
 )
-ggplot2::autoplot(results)
+ggplot2::autoplot(results,type = "beeswarm")
 ```
 
 The plot shows that the cluster can significantly reduce the time, also, the method "lmC" is faster than "lmR", and is faster than "lm". 
