@@ -1,0 +1,113 @@
+---
+title: "Final Project:  Generalized Linear Regression with Little Bag of Bootstraps by Parallel"
+author: "Yahui Li"
+date: "June 10, 2020"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{my-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This vignette is a continue report of final project in STA141C, 2020 Spring. Our goal is to implement the little bag of bootstrap in generalized linear regression to get the estimation and confidence interval of coefficients, sigma and prediction. At the same time, make use of multiple ways for high performance statistical computing, such as parallel computing and distribution. 
+
+### Overview
+
+The main function to make the little bag of bootstrap of generalized linear regression on the data set is `blbglm()`. The input has formula, data, files, number of subsamples $m$, number of bootstrap times $B$, the cluster (default as `NULL`, no parallel), family (same as `glm()`, binomial() is logistic regression). The output will be a list including original formula and the estimate coefficient and sigma from weighted generalized linear regression for each little bag of bootstrap in each subsample. 
+
+To get a high computing performance, the users can use cluster in parallel package for parallel computing. Also, given split data, the users can input the path of these data and distribute them into separate workers if they already establish multiple cores. 
+
+With the result of `blbglm()`, we can take advantage to calculate the estimation coefficient, sigma and prediction as well as their confidence interval by bootstrap method. I define `coef()` to get the estimated coefficient; `confint()` to get it's confidence interval; `sigma()` to get the estimated sigma, with choice of `confidence = TRUE` to get the confidence interval as well; `predict()` to transform the linear predictors given a new data by the inverse of the link function, with choice of `confidence = TRUE` to get the confidence interval as well. In order to make use of cluster, I also provide the choice to use cluster in these export functions. 
+
+Now I will use some data set and make multiple choice to compare the computing performance.
+
+
+```{r setup}
+library(blblm)
+library(parallel)
+```
+
+### Logistic Regression
+
+For a given data about getting into graduate school given scores from https://stats.idre.ucla.edu/stat/data/binary.csv, I use little bootstrap method to for the logistic regression `admit ~ gre + gpa + rank`. 
+```{r readdata}
+data <- read.csv("https://stats.idre.ucla.edu/stat/data/binary.csv")
+```
+
+In order to use parallel, I create a cluster firstly. 
+
+```{r clutser}
+# make a cluster
+cl = makeCluster(2) 
+```
+
+Then I compare the running time of this process without or with parallelization.
+
+```{r parallel, warning=FALSE, paged.print = FALSE}
+bench::mark(
+  fit_no = blbglm(admit ~ gre + gpa + rank, data = data, m = 20,B = 100, family = binomial()),
+  fit_cl = blbglm(admit ~ gre + gpa + rank, data = data, m = 20,B = 100, family = binomial(), cluster = cl),
+  check = FALSE,
+  relative = TRUE
+)
+```
+
+The result shows that the computation with two cores is twice faster than without cluster, as we expect. Also, parallelization uses much less memory.
+
+Now let's compare the estimations with or without parallelization.
+
+```{r estimation, warning=FALSE, paged.print = FALSE}
+fit = blbglm(admit ~ gre + gpa + rank, data = data, m = 20,B = 100, family = binomial(), cluster = cl)
+
+bench::mark(
+  conf_no = coef(fit), conf_cl = coef(fit, cluster = cl),relative = TRUE 
+)
+bench::mark(
+  sigma_no = sigma(fit,confidence = TRUE), 
+  sigma_cl = sigma(fit,confidence = TRUE, cluster = cl), 
+  relative = TRUE 
+)
+# bench::mark(
+#   pred_no = predict(fit, data.frame(gre = c(319,330), gpa = c(3.3,3.5), rank = c(25,10)), confidence = TRUE),
+#   pred_cl = predict(fit, data.frame(gre = c(319,330), gpa = c(3.3,3.5), rank = c(25,10)), confidence = TRUE, cluster = cl), 
+#   relative = TRUE 
+# )
+```
+
+Still, parallelization is not suitable to the estimation process, but it can reduce the physical memory as well.
+
+
+### Gamma Regression
+
+We still use the $100$ split data in former report and do gamma regression on it. If we choose the cluster, the separate file will be distributed to each worker.
+
+
+In order to get a satisfied result, we create $100$ files, and each of them contains $100$ cases of x and y. We save them in the "files" folder.
+
+```{r distribution, warning=FALSE, paged.print = FALSE}
+file_names <- file.path("files", list.files("files"))
+bench::mark(
+    fit_no = blbglm(y ~ x, files = file_names, B = 10, family = Gamma()),
+    fit_cl = blbglm(y ~ x, files = file_names, B = 10, family = Gamma(), cluster = cl),
+  check = FALSE, relative = TRUE
+)
+```
+
+Still, with distribution, the computing is faster and it uses less memory.
+
+### Conclusion
+
+We apply the thought of `blblm()` into `blbglm()`, and the little bag of bootstrap still works on the generalized linear regression. At the same time, parallelization and distribution can still reduce the time and memory. One further research is to implement the calculation on Rcpp, which is not as easy as `lmC()`. 
+
+```{r}
+stopCluster(cl) # stop the cluster
+```
+
+

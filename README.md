@@ -43,3 +43,18 @@ coef(fit)
 stopCluster(cl)
 ```
 For more detail and analysis, you may refer to the vignettes.
+
+Another application is GLM. We have `blbglm` function which serves the same function as `blblm` in generalized linear regression model.
+``` r
+data <- read.csv("https://stats.idre.ucla.edu/stat/data/binary.csv")
+fit <- blbglm(admit ~ gre + gpa + rank , data = data, m = 3, B = 10, family = binomial())
+coef(fit)
+#>  (Intercept)          gre          gpa         rank 
+#> -3.817750356  0.002572968  0.891551864 -0.651820235 
+sigma(fit, confidence = TRUE)
+#>     sigma       lwr       upr 
+#> 0.4647529 0.4500273 0.4755248 
+predict(fit, data.frame(gre = c(319,330), gpa = c(3.3,3.5), rank = c(25,10)), confidence = TRUE)
+#>           fit          lwr        upr
+#> 1 0.002458945 1.993245e-06 0.01726259
+```
